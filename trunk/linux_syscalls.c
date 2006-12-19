@@ -351,6 +351,10 @@ linux_syscall_number(const char *emulation, const char *name)
 	for (i = 0; i < NR_syscalls && linux_syscallnames[i]; i++)
 		if (!strcmp(name, linux_syscallnames[i]))
 			return i;
+	if (strncmp(name, "unknown-", 8) == 0) {
+		/* guess the system call number from the generated name */
+		return atoi(name + 8);
+	}
 
 	return (-1);
 }
