@@ -329,10 +329,16 @@ linux_syscall_name(pid_t pidnr, int number)
 			if (linux_syscallnames[nr_syscalls] == NULL)
 				break;
 	}
-	if (number < 0 || number >= nr_syscalls) {
+	if (number < 0 || number >= nr_syscalls * 2) {
 		DFPRINTF((stderr, "%s: pid %d Bad number: %d\n",
 			__func__, pidnr, number));
 		return (NULL);
+	}
+	if (number >= nr_syscalls) {
+	        /* linux usually has header files and kernel out of sync */
+	        static char name[32];
+		snprintf(name, sizeof(name), "unknown-%d", number);
+		return (name);
 	}
 
 	return (linux_syscallnames[number]);
