@@ -2,6 +2,10 @@
  * Copyright (c) 2002 Marius Aamodt Eriksen <marius@umich.edu>
  */
 
+#ifndef NR_syscalls
+#define NR_syscalls MAX_SYSCALLS
+#endif
+
 /*
  * this file emulates openbsd's syscallnames[] array.  linux does not
  * have such a feature.  automatically generated from

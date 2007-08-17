@@ -58,9 +58,7 @@ typedef u_int32_t u32;
 #include <sys/queue.h>
 #include <sys/tree.h>
 
-#ifndef NR_syscalls
-#define NR_syscalls 512
-#endif
+#define MAX_SYSCALLS 2048	/* maximum number of system calls we support */
 
 #include <limits.h>
 #include <err.h>
@@ -139,7 +137,7 @@ static void                  linux_atexit(void);
 #define SYSTR_FLAGS_CLONE_EXITING	0x400
 
 struct linux_policy {
-	int error_code[NR_syscalls];
+	int error_code[MAX_SYSCALLS];
 };
 
 #define MAX_POLICIES	500
@@ -839,7 +837,7 @@ linux_modifypolicy(int fd, int num, int code, short policy)
 {
 	DFPRINTF((stderr, "%s: fd %d policy %d: %d\n", __func__, fd, num, code));
 
-	if (num < 0 || num >= MAX_POLICIES || code < 0 || code >= NR_syscalls)
+	if (num < 0 || num >= MAX_POLICIES || code < 0 || code >= MAX_SYSCALLS)
 		errx(1, "%s: bad parameters", __func__);
 
 	if (!policy_used[num]) {
@@ -981,7 +979,7 @@ linux_lookuppolicy(struct intercept_pid *icpid, int sysnum)
 {
 	struct linux_data *data = icpid->data;
 	
-	if (sysnum < 0 || sysnum >= NR_syscalls)
+	if (sysnum < 0 || sysnum >= MAX_SYSCALLS)
 		errx(1, "%s: bad system call %d", __func__, sysnum);
 
 	if (data->policy < 0 || data->policy >= MAX_POLICIES)
