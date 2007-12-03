@@ -112,6 +112,7 @@ static int                   linux_setcwd(int, pid_t);
 static int                   linux_restcwd(int);
 static int                   linux_argument(int, void *, int, void **);
 static int                   linux_read(int);
+static int                   linux_isfork(const char *);
 
 static void		     linux_remove_pidstatus(struct intercept_pid *, pid_t);
 static void		     linux_wakeprocesses(struct intercept_pid *, pid_t cpid);
@@ -759,23 +760,30 @@ linux_answer(int fd, pid_t pid, u_int32_t seqnr, short policy, int errnumber,
 {
 	int res = -1;
 	int error_code = 0;
+	struct intercept_pid *icpid;
+	struct linux_data *data = NULL;
+
+	icpid = intercept_findpid(pid);
+
+	if (icpid == NULL)
+		errx(1, "%s: no state for pid %d", __func__, pid);
+
+	data = icpid->data;
+
 	DFPRINTF((stderr, "%s: pid %d action %d errnumber %d\n",
 		__func__, pid, policy, errnumber));
 
-	if (flags & ICFLAGS_RESULT) {
-		struct intercept_pid *icpid;
-		struct linux_data *data;
-		icpid = intercept_findpid(pid);
-		if (icpid == NULL)
-			errx(1, "%s: no state for pid %d", __func__, pid);
-		data = icpid->data;
+	if (flags & ICFLAGS_RESULT)
 		data->flags |= linux_translate_flags(flags);
-	}
 
 	if (linux_policytranslate(policy, errnumber, &error_code) == -1) {
 		linux_abortsyscall_error(pid, error_code);
 	} else {
 		DFPRINTF((stderr, "%s: allowing system call\n", __func__));
+		/* See notes in linux_systemcall(), only set this flag is the fork is
+		 * permitted. */
+		if (linux_isfork(linux_syscall_name(pid, data->regs.orig_eax)))
+			data->flags |= SYSTR_FLAGS_SAWFORK;
 	}
 	
 	/* we need to deny here if possible */
@@ -1318,7 +1326,16 @@ linux_child_info(pid_t pid, pid_t cpid, struct user_regs_struct *regs)
 static void
 linux_forkreturn(pid_t pid, struct user_regs_struct *regs)
 {
+	int sysnum = regs->orig_eax;
 	pid_t child_pid = regs->eax;
+	const char *sysname = linux_syscall_name(pid, sysnum);
+
+	if (!linux_isfork(sysname)) {
+		/* should only be called on fork() return */
+		errx(1, "%s: %s was not expected, i should not have been called.",
+			__func__, sysname);
+	}
+
 	DFPRINTF((stderr, "%s: pid %d fork return %d\n",
 		__func__, pid, child_pid));
 	if (child_pid >= 0) {
@@ -1458,7 +1475,6 @@ linux_systemcall(int fd, pid_t pid, struct intercept_pid *icpid)
 			 * the children for us.
 			 */
 			linux_rewritefork(pid, sysname, regs);
-			data->flags |= SYSTR_FLAGS_SAWFORK;
 		} else if (linux_iswaitpid(sysname)) {
 			linux_rewritewaitpid(pid, sysname, regs);
 		}
@@ -1467,6 +1483,22 @@ linux_systemcall(int fd, pid_t pid, struct intercept_pid *icpid)
 			/* Check if we should use the fast path */
 			policy = linux_lookuppolicy(icpid, sysnumber);
 			if (policy == ICPOLICY_PERMIT) {
+				if (linux_isfork(sysname)) {
+					/* 
+					 * At this point we know we've seen a fork()-like call, and
+					 * it is going to be permitted. Setting this flag indicates that
+					 * on the next syscall return, we need to call linux_forkreturn()
+					 * to handle setting up a new child process.
+					 *
+					 * It's important to only set this flag if we really expect the
+					 * next syscall return to be from a fork(), although it could have
+					 * failed due to erroneous clone flags or process limits, etc. 
+					 * which linux_forkreturn() must handle.
+					 *
+					 * This flag can also be set in linux_answer().
+					 */
+					data->flags |= SYSTR_FLAGS_SAWFORK;
+				}
 				res = ptrace(PTRACE_SYSCALL, pid, (char *)1, 0);
 				if (res == -1)
 					err(1, "%s: ptrace getregs", __func__);
