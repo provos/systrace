@@ -333,9 +333,11 @@ linux_syscall_name(pid_t pidnr, int number)
 			if (linux_syscallnames[nr_syscalls] == NULL)
 				break;
 	}
-	if (number < 0 || number >= nr_syscalls * 2) {
-		DFPRINTF((stderr, "%s: pid %d Bad number: %d\n",
-			__func__, pidnr, number));
+	if (number < -1 || number >= nr_syscalls * 2) {
+		errx(1, "pid %d Bad syscall number: %d\n", pidnr, number);
+	}
+	/* handle spurious -1 on entry */
+	if (number == -1) {
 		return (NULL);
 	}
 	if (number >= nr_syscalls) {

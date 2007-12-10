@@ -73,6 +73,11 @@
 #define CRADLE_SERVER "cradle_server"
 #define CRADLE_UI     "cradle_ui"
 
+/* look up code in policy table if it's within range */
+#define FPCHECK(policy, code) \
+	(((code) >= INTERCEPT_MAXSYSCALLNR || (code) < 0) \
+		? ICPOLICY_NEVER : (policy)->kerneltable[(code)])
+
 pid_t trpid;
 int trfd;
 int connected = 0;		 /* Connected to GUI */
@@ -208,7 +213,7 @@ trans_cb(int fd, pid_t pid, int policynr,
 		    emulation, name, code, tls, repl);
 
 		/* Fast-path checking */
-		if ((action = policy->kerneltable[code]) != ICPOLICY_ASK)
+		if ((action = FPCHECK(policy, code)) != ICPOLICY_ASK)
 			goto out;
 
 		pflq = systrace_policyflq(policy, emulation, name);
@@ -332,7 +337,7 @@ gen_cb(int fd, pid_t pid, int policynr, const char *name, int code,
 
 	do {
 		/* Fast-path checking */
-		if ((action = policy->kerneltable[code]) != ICPOLICY_ASK)
+		if ((action = FPCHECK(policy, code)) != ICPOLICY_ASK)
 			goto out;
 
 		action = filter_evaluate(NULL, pflq, ipid);
