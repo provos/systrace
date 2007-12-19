@@ -1,0 +1,2 @@
+Changes since last release:
+ - potential escape of socket aliases and double free; from Tavis Ormandy
