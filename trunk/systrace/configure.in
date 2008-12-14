@@ -52,8 +52,6 @@ x86_64-*-linux*)
 	SYSTR_HEADER="<sys/ptrace.h>"
 	AC_DEFINE(PTRACE_LINUX64, 1,
 	[Define if we are compiling against ptrace on a 64-bit system])
-dnl glibc sux
-	AC_LIBOBJ(getopt)
 	;;
 dnl this catches all other Linux implementations
 *-*-linux*)
@@ -71,8 +69,6 @@ dnl this catches all other Linux implementations
 		[Define if we are compiling against ptrace on a 32-bit system])
 		SYSTR_HEADER="<sys/ptrace.h>"
 	fi
-dnl glibc sux
-	AC_LIBOBJ(getopt)
 	;;
 *-*-darwin*)
 	AC_LIBOBJ(darwin-syscalls)
@@ -102,7 +98,7 @@ dnl Checks for library functions.
 AC_PROG_GCC_TRADITIONAL
 AC_TYPE_SIGNAL
 AC_CHECK_FUNCS(select poll socket chflags prctl)
-AC_REPLACE_FUNCS(strlcpy strlcat basename dirname setproctitle)
+AC_REPLACE_FUNCS(strlcpy strlcat basename dirname setproctitle getopt)
 
 if test "x$ac_cv_func_basename" = "xyes"; then
 	AC_MSG_CHECKING(for working basename)
