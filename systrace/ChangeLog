@@ -1,3 +1,6 @@
-Changes since last release:
- - potential escape of socket aliases and double free; from Tavis Ormandy
- - fixed a problem with fork and ptrace; from Tavis Ormandy; CVE-2007-4773
+Changes in current version:
+ o prevent a 32-bit program from mapping in 64-bit system calls; from Chris Evans
+
+Changes in 1.6.e:
+ o potential escape of socket aliases and double free; from Tavis Ormandy
+ o fixed a problem with fork and ptrace; from Tavis Ormandy; CVE-2007-4773

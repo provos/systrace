@@ -50,13 +50,15 @@ typedef u_int32_t u32;
 #include <linux/types.h>
 #ifdef HAVE_LINUX_USER_H
 #include <linux/user.h>
-#endif
-#ifdef HAVE_ASM_USER_H
-#include <asm/user.h>
-#endif
+#else
 #ifdef HAVE_SYS_USER_H
 #include <sys/user.h>
-#endif
+#else
+#ifdef HAVE_ASM_USER_H
+#include <asm/user.h>
+#endif  /* HAVE_ASM_USER_H */
+#endif  /* HAVE_SYS_USER_H */
+#endif  /* HAVE_LINUX_USER_H */
 #include <linux/ptrace.h>	/* for PTRACE_O_TRACESYSGOOD */
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -1441,6 +1443,16 @@ linux_systemcall(int fd, pid_t pid, struct intercept_pid *icpid)
 		-regs->eax));
 
 	if (data->status == SYSCALL_START) {
+#ifndef PTRACE_LINUX64
+		if (regs->cs != 0x73 && regs->cs != 0x23) {
+			/*
+			 * Security violation - attacker might be trying to
+			 * map to the 64-bit syscall table.
+			 */
+			linux_abortsyscall(pid);
+			errx(1, "%s: evil CS value 0x%x", __func__, regs->cs);
+		}
+#endif
 		if (sysnumber == -1) {
 			/* Spurious stuff - ignore? */
 			DFPRINTF((stderr, "%s: spurious -1 on syscall name\n",
