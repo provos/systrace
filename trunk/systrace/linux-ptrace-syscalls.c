@@ -54,6 +54,9 @@ typedef u_int32_t u32;
 #ifdef HAVE_ASM_USER_H
 #include <asm/user.h>
 #endif
+#ifdef HAVE_SYS_USER_H
+#include <sys/user.h>
+#endif
 #include <linux/ptrace.h>	/* for PTRACE_O_TRACESYSGOOD */
 #include <sys/queue.h>
 #include <sys/tree.h>
