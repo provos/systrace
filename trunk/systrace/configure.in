@@ -45,6 +45,7 @@ case "$host" in
         ;;
 dnl detecting 64-bit Linux
 x86_64-*-linux*)
+	AC_LIBOBJ(register-linux)
 	AC_LIBOBJ(linux-translate)
 	AC_MSG_CHECKING([for secure systrace implementation])
 	AC_MSG_RESULT([no, using insecure ptrace])
