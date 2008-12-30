@@ -201,6 +201,51 @@ struct linux_data {
 
 static int notify_fd = -1; 
 
+enum LINUX_SYSCALLS {
+	SYSTR_CLONE = 0,
+	SYSTR_GETPID = 1,
+	SYSTR_WAIT4 = 2,
+	SYSTR_EXECVE = 3,
+	SYSTR_SETSID = 4,
+	SYSTR_SETPGID = 5,
+	SYSTR_NUM_CALLS = 6
+};
+
+/* mapps special system calls used internally by the ptrace backend to
+ * the system call number. */
+static int
+linux_map_call(enum LINUX_CALL_TYPES call_type, enum LINUX_SYSCALLS call_number)
+{
+	static int initialized;
+	static int mappings[LINUX_NUM_VERSIONS][SYSTR_NUM_CALLS];
+	if (!initialized) {
+		const char *names[] = {
+			"clone", "getpid", "wait4", "execve", "setsid", "setpgid",
+			NULL
+		};
+		
+		int i;
+		for (i = 0; names[i] != NULL; ++i) {
+			int res = linux_syscall_number("linux", names[i]);
+			assert(res != -1);
+			mappings[LINUX32][i] = res;
+			res = linux_syscall_number("linux64", names[i]);
+			assert(res != -1);
+			mappings[LINUX64][i] = res;
+		}
+		initialized = 1;
+	}
+
+	assert(call_type >= 0);
+	assert(call_type < LINUX_NUM_VERSIONS);
+	assert(call_number >= 0);
+	assert(call_number < SYSTR_NUM_CALLS);
+
+	return (mappings[call_type][call_number]);
+}
+
+
+
 static void
 linux_term_signal(int fd, short what, void *arg)
 {
@@ -1044,7 +1089,7 @@ linux_isfork(const char *sysname)
 {
 	if (sysname == NULL)
 		return (0);
-	
+
 	return (!strcmp(sysname, "fork") ||
 	    !strcmp(sysname, "vfork") ||
 	    !strcmp(sysname, "clone"));
@@ -1076,7 +1121,7 @@ linux_rewritefork(pid_t pid, const char *sysname, struct user_regs_struct *regs)
 	DFPRINTF((stderr, "%s: pid %d rewriting %s to clone\n",
 		__func__, pid, sysname));
 	
-	SYSCALL_NUM(regs) = __NR_clone;
+	SYSCALL_NUM(regs) = linux_map_call(linux_call_type(regs->cs), SYSTR_CLONE);
 	if (strcmp(sysname, "fork") == 0) {
 		int clone_flags = SIGCHLD | CLONE_PTRACE;
 		linux_set_argument(regs, 0, clone_flags);
@@ -1224,7 +1269,7 @@ linux_rewritewaitpid(pid_t pid, const char *sysname,
 		
 	/* XXX - turn it into a pause */
 	DFPRINTF((stderr, "%s: pid %d wait4 pausing\n",	__func__, pid));
-	SYSCALL_NUM(regs) = __NR_getpid;
+	SYSCALL_NUM(regs) = linux_map_call(linux_call_type(regs->cs), SYSTR_GETPID);
        
 	res = ptrace(PTRACE_SETREGS, pid, NULL, regs);
 	if (res == -1)
@@ -1268,7 +1313,7 @@ linux_rewritewaitpid_return(pid_t pid, struct linux_data *data, pid_t res_pid, i
 	 * one again.  In case that there is a restart, we do not want to
 	 * enter a pause.
 	 */
-	SYSCALL_NUM(&regs) = __NR_wait4;
+	SYSCALL_NUM(&regs) = linux_map_call(linux_call_type(regs.cs), SYSTR_WAIT4);
 
 	res = ptrace(PTRACE_SETREGS, pid, NULL, &regs);
 	if (res == -1)
@@ -1430,7 +1475,7 @@ linux_setpgidreturn(pid_t pid, struct user_regs_struct *regs)
 {
 	struct intercept_pid *icpid;
 	struct linux_data *data;
-	pid_t set_pid;
+	long set_pid, tmp;
 	
 	linux_argument(0, regs, sizeof(*regs), (void **)&set_pid);
 	DFPRINTF((stderr, "%s: pid %d setpgid return: target pid %d\n",
@@ -1442,7 +1487,8 @@ linux_setpgidreturn(pid_t pid, struct user_regs_struct *regs)
 	data = icpid->data;
 
 	/* remember the new pgid */
-	linux_argument(1, regs, sizeof(*regs), (void **)&data->pgid);
+	linux_argument(1, regs, sizeof(*regs), (void **)&tmp);
+	data->pgid = tmp;
 	if (data->pgid == 0)
 		data->pgid = pid;
 }
@@ -1588,7 +1634,7 @@ linux_systemcall(int fd, pid_t pid, struct intercept_pid *icpid)
 		}
 
 #ifdef PTRACE_LINUX64
-		if (linux_call_type(regs->cs) == LINUX64)
+		if (call_type == LINUX64)
 			emulation = "linux64";
 #endif
 		intercept_syscall(fd, pid, 1, data->policy,
@@ -1625,15 +1671,18 @@ linux_systemcall(int fd, pid_t pid, struct intercept_pid *icpid)
 			linux_write_returncode(pid, regs, data->error_code);
 			data->flags &= ~SYSTR_FLAGS_ERRORCODE;
 			data->error_code = 0;
-		} else if (sysnumber == __NR_execve && !RETURN_CODE(regs)) {
+		} else if (sysnumber == linux_map_call(call_type, SYSTR_EXECVE) &&
+		    !RETURN_CODE(regs)) {
 			/* remember that we saw a successful execve */
 			data->flags |= SYSTR_FLAGS_SAWEXECVE;
 		} else if (data->flags & SYSTR_FLAGS_SAWFORK) {
 			data->flags &= ~SYSTR_FLAGS_SAWFORK;
 			linux_forkreturn(pid, regs);
-		} else if (sysnumber == __NR_setsid && RETURN_CODE(regs) >= 0) {
+		} else if (sysnumber == linux_map_call(call_type, SYSTR_SETSID) &&
+		    RETURN_CODE(regs) >= 0) {
 			linux_setsidreturn(pid, regs);
-		} else if (sysnumber == __NR_setpgid && RETURN_CODE(regs) == 0) {
+		} else if (sysnumber == linux_map_call(call_type, SYSTR_SETPGID) &&
+		    RETURN_CODE(regs) == 0) {
 			linux_setpgidreturn(pid, regs);
 		}
 		
@@ -1916,7 +1965,6 @@ linux_read(int fd)
 	
 	return (0);
 }
-
 
 struct intercept_system intercept = {
 #ifdef PTRACE_LINUX64
