@@ -95,23 +95,38 @@ typedef u_int32_t u32;
 #include "systrace-errno.h"
 
 #ifdef PTRACE_LINUX64
-#define SYSCALL_NUM(x)	(x)->orig_rax
-#define RETURN_CODE(x)	(x)->rax
-#define ARGUMENT_0(x)	(x)->rdi
-#define ARGUMENT_1(x)	(x)->rsi
-#define ARGUMENT_2(x)	(x)->rdx
-#define ARGUMENT_3(x)	(x)->rcx
-#define ARGUMENT_4(x)	(x)->r8
-#define ARGUMENT_5(x)	(x)->r9
+#define ISLINUX32(x)		(linux_call_type((x)->cs) == LINUX32)
+#define SYSCALL_NUM(x)		(x)->orig_rax
+#define SET_RETURN_CODE(x, v)	(x)->rax = (v)
+#define RETURN_CODE(x)		(ISLINUX32(x) ? (long)(int)(x)->rax : (x)->rax)
+#define ARGUMENT_0(x)		(ISLINUX32(x) ? (x)->rbx : (x)->rdi)
+#define ARGUMENT_1(x)		(ISLINUX32(x) ? (x)->rcx : (x)->rsi)
+#define ARGUMENT_2(x)		(ISLINUX32(x) ? (x)->rdx : (x)->rdx)
+#define ARGUMENT_3(x)		(ISLINUX32(x) ? (x)->rsi : (x)->rcx)
+#define ARGUMENT_4(x)		(ISLINUX32(x) ? (x)->rdi : (x)->r8)
+#define ARGUMENT_5(x)		(ISLINUX32(x) ? (x)->rbp : (x)->r9)
+#define SET_ARGUMENT_0(x, v)	if (ISLINUX32(x)) (x)->rbx = (v); else (x)->rdi = (v)
+#define SET_ARGUMENT_1(x, v)	if (ISLINUX32(x)) (x)->rcx = (v); else (x)->rsi = (v)
+#define SET_ARGUMENT_2(x, v)	if (ISLINUX32(x)) (x)->rdx = (v); else (x)->rdx = (v)
+#define SET_ARGUMENT_3(x, v)	if (ISLINUX32(x)) (x)->rsi = (v); else (x)->rcx = (v)
+#define SET_ARGUMENT_4(x, v)	if (ISLINUX32(x)) (x)->rdi = (v); else (x)->r8 = (v)
+#define SET_ARGUMENT_5(x, v)	if (ISLINUX32(x)) (x)->rbp = (v); else (x)->r9 = (v)
 #else
-#define SYSCALL_NUM(x)	(x)->orig_eax
-#define RETURN_CODE(x)	(x)->eax
-#define ARGUMENT_0(x)	(x)->ebx
-#define ARGUMENT_1(x)	(x)->ecx
-#define ARGUMENT_2(x)	(x)->edx
-#define ARGUMENT_3(x)	(x)->esi
-#define ARGUMENT_4(x)	(x)->edi
-#define ARGUMENT_5(x)	(x)->ebp
+#define SYSCALL_NUM(x)		(x)->orig_eax
+#define SET_RETURN_CODE(x, v)	(x)->eax = (v)
+#define RETURN_CODE(x)		(x)->eax
+#define ARGUMENT_0(x)		(x)->ebx
+#define ARGUMENT_1(x)		(x)->ecx
+#define ARGUMENT_2(x)		(x)->edx
+#define ARGUMENT_3(x)		(x)->esi
+#define ARGUMENT_4(x)		(x)->edi
+#define ARGUMENT_5(x)		(x)->ebp
+#define SET_ARGUMENT_0(x, v)	(x)->ebx = (v)
+#define SET_ARGUMENT_1(x, v)	(x)->ecx = (v)
+#define SET_ARGUMENT_2(x, v)	(x)->edx = (v)
+#define SET_ARGUMENT_3(x, v)	(x)->esi = (v)
+#define SET_ARGUMENT_4(x, v)	(x)->edi = (v)
+#define SET_ARGUMENT_5(x, v)	(x)->ebp = (v)
 #endif /* !PTRACE_LINUX64 */
 
 static int                   linux_init(void);
@@ -124,7 +139,6 @@ static void                  linux_freepid(struct intercept_pid *);
 static void                  linux_clonepid(struct intercept_pid *, struct intercept_pid *);
 static const char           *linux_syscall_name(enum LINUX_CALL_TYPES, pid_t, int);
 static int                   linux_syscall_number(const char *, const char *);
-static short                 linux_translate_policy(short);
 static short                 linux_translate_flags(short);
 static int                   linux_translate_errno(int);
 static int                   linux_answer(int, pid_t, u_int32_t, short, int, short, struct elevate *);
@@ -163,7 +177,7 @@ static void                  linux_atexit(void);
 #define SYSTR_FLAGS_CLONE_EXITING	0x400
 
 struct linux_policy {
-	int error_code[MAX_SYSCALLS];
+	long error_code[MAX_SYSCALLS];
 };
 
 #define MAX_POLICIES	500
@@ -182,7 +196,7 @@ struct linux_data {
 	enum { SYSCALL_START = 0, SYSCALL_END } status;
 	int policy;
 	int flags;
-	int error_code;
+	long error_code;
 	long pstatus;	/* where to stick the return code */
 	int wstatus;	/* saved error code for exit */
 	pid_t waitpid;
@@ -621,23 +635,6 @@ out:
 }
 
 static short
-linux_translate_policy(short policy)
-{
-	switch (policy) {
-	case ICPOLICY_ASK:
-		return (SYSTR_POLICY_ASK);
-	case ICPOLICY_PERMIT:
-		return (SYSTR_POLICY_PERMIT);
-	case ICPOLICY_NEVER:
-		return (SYSTR_POLICY_NEVER);
-	default:
-		if (policy > 0)
-			return (-policy);
-		return (SYSTR_POLICY_NEVER);
-	}
-}
-
-static short
 linux_translate_flags(short flags)
 {
 	switch (flags) {
@@ -749,11 +746,11 @@ linux_abortsyscall(pid_t pid)
 }
 
 static void
-linux_write_returncode(pid_t pid, struct user_regs_struct* regs, int code)
+linux_write_returncode(pid_t pid, struct user_regs_struct* regs, long code)
 {
 	int res;
 	DFPRINTF((stderr, "%s: setting return code to %d\n", __func__, code));
-	RETURN_CODE(regs) = code;
+	SET_RETURN_CODE(regs, code);
 	res = ptrace(PTRACE_SETREGS, pid, NULL, regs);
 	if (res == -1)
 		err(1, "%s: ptrace getregs", __func__);
@@ -765,9 +762,9 @@ linux_write_returncode(pid_t pid, struct user_regs_struct* regs, int code)
  */
 
 static int
-linux_policytranslate(int policy, int errnumber, int *result)
+linux_policytranslate(int policy, int errnumber, long *result)
 {
-	int error_code = 0;
+	long error_code = 0;
 	int res = 0;
 
 	DFPRINTF((stderr, "%s: policy %d\n", __func__, policy));
@@ -798,11 +795,11 @@ linux_policytranslate(int policy, int errnumber, int *result)
  */
 
 static void
-linux_set_returncode(pid_t pid, int error_code)
+linux_set_returncode(pid_t pid, long error_code)
 {
 	struct intercept_pid *icpid;
 	struct linux_data *data;
-	DFPRINTF((stderr, "%s: setting return code: pid %d error %d\n",
+	DFPRINTF((stderr, "%s: setting return code: pid %d error %ld\n",
 		__func__, pid, error_code));
 
 	icpid = intercept_findpid(pid);
@@ -814,7 +811,7 @@ linux_set_returncode(pid_t pid, int error_code)
 }
 
 static void
-linux_abortsyscall_error(pid_t pid, int error_code)
+linux_abortsyscall_error(pid_t pid, long error_code)
 {
 	DFPRINTF((stderr, "%s: aborting system call: pid %d error %d\n",
 		__func__, pid, error_code));
@@ -830,7 +827,7 @@ linux_answer(int fd, pid_t pid, u_int32_t seqnr, short policy, int errnumber,
     short flags, struct elevate *elevate)
 {
 	int res = -1;
-	int error_code = 0;
+	long error_code = 0;
 	struct intercept_pid *icpid;
 	struct linux_data *data = NULL;
 
@@ -951,27 +948,53 @@ linux_replace(int fd, pid_t pid, u_int16_t seqnr,
 static int
 linux_io(int fd, pid_t pid, int op, void *addr, u_char *buf, size_t size)
 {
-	long val;
 	int i = 0;
-	DFPRINTF((stderr, "%s: pid %d\n", __func__, pid));
+	union {
+		long val;
+		char x[sizeof(long)];
+	} u;
+
+	DFPRINTF((stderr, "%s: pid %d, %p for %ld\n", __func__, pid, addr, size));
 
 	if (op != INTERCEPT_READ)
 		errx(1, "%s: unsupported IO operation", __func__);
-	
-	while (i < size) {
-		val = ptrace(PTRACE_PEEKDATA, pid, addr, 0);
-		/* Man page says this is how failure is indicated */
-		if (val == -1 && errno != 0) {
-			warn("%s:%d %s: read at %p failed",
-			    __FILE__, __LINE__, __func__, addr);
+
+	if ((long)addr & (sizeof(long) - 1)) {
+		/* the address is not word aligned */
+		int off = (long)addr - ((long)addr & -sizeof(long));
+		int tocopy;
+		addr = (void *)((long)addr & -sizeof(long));
+		u.val = ptrace(PTRACE_PEEKDATA, pid, addr, 0);
+		if (u.val == -1) {
+			DFPRINTF((stderr,
+				"%s:%d %s: read at %p failed (start): %d\n",
+				__FILE__, __LINE__, __func__, addr, errno));
+			errno = EINVAL;
 			return (-1);
 		}
-		memcpy(buf, &val,
-		    size - i < sizeof(val) ? size - i : sizeof(val));
 
-		i += sizeof(val);
-		addr = (char *)addr + sizeof(val);
-		buf += sizeof(val);
+		tocopy = MIN(sizeof(long) - off, size);
+		memcpy(buf, &u.x[off], tocopy);
+		addr += sizeof(long);
+		buf += tocopy;
+		size -= tocopy;
+	}
+	
+	while (i < size) {
+		u.val = ptrace(PTRACE_PEEKDATA, pid, addr, 0);
+		/* Man page says this is how failure is indicated */
+		if (u.val == -1 && errno != 0) {
+			DFPRINTF((stderr,
+				"%s:%d %s: read at %p failed (%d of %ld): %d\n",
+				__FILE__, __LINE__, __func__, addr, i, size, errno));
+			errno = EINVAL;
+			return (-1);
+		}
+		memcpy(buf, u.x, size - i < sizeof(long) ? size - i : sizeof(long));
+
+		i += sizeof(long);
+		addr = (char *)addr + sizeof(long);
+		buf += sizeof(long);
 	}
 	
 	return (0);
@@ -1025,7 +1048,7 @@ linux_argument(int off, void *pargs, int argsize, void **pres)
 		return (-1);
 	}
 
-	DFPRINTF((stderr, "%s: off %d: %lx\n", __func__, off, (long)*pres));
+	DFPRINTF((stderr, "%s: off %d: 0x%lx\n", __func__, off, (long)*pres));
 
 	return (0);
 }
@@ -1037,22 +1060,22 @@ linux_set_argument(struct user_regs_struct *regs, int off, long val)
 	
 	switch (off) {
 	case 0:
-		ARGUMENT_0(regs) = val;
+		SET_ARGUMENT_0(regs, val);
 		break;
 	case 1:
-		ARGUMENT_1(regs) = val;
+		SET_ARGUMENT_1(regs, val);
 		break;
 	case 2:
-		ARGUMENT_2(regs) = val;
+		SET_ARGUMENT_2(regs, val);
 		break;
 	case 3:
-		ARGUMENT_3(regs) = val;
+		SET_ARGUMENT_3(regs, val);
 		break;
 	case 4:
-		ARGUMENT_4(regs) = val;
+		SET_ARGUMENT_4(regs, val);
 		break;
 	case 5:
-		ARGUMENT_5(regs) = val;
+		SET_ARGUMENT_5(regs, val);
 		break;
 	default:
 		/* out of bounds */
@@ -1517,7 +1540,7 @@ linux_systemcall(int fd, pid_t pid, struct intercept_pid *icpid)
 		res = ptrace(PTRACE_GETREGS, pid, NULL, &tmp);
 		if (res == -1)
 			err(1, "%s: ptrace getregs", __func__);
-		RETURN_CODE(regs) = RETURN_CODE(&tmp);
+		SET_RETURN_CODE(regs, RETURN_CODE(&tmp));
 	}
 
 #ifdef PTRACE_LINUX64
@@ -1532,7 +1555,7 @@ linux_systemcall(int fd, pid_t pid, struct intercept_pid *icpid)
 	DFPRINTF((stderr, "%s: pid %d %s(%ld) %s %ld\n",__func__, pid,
 		sysname, sysnumber,
 		data->status == SYSCALL_START ? "start" : "end",
-		-RETURN_CODE(regs)));
+		(long)-RETURN_CODE(regs)));
 
 	if (data->status == SYSCALL_START) {
 #ifndef PTRACE_LINUX64
@@ -1573,7 +1596,8 @@ linux_systemcall(int fd, pid_t pid, struct intercept_pid *icpid)
 	
 	if (data->status == SYSCALL_START) {
 		char *emulation = "linux";
-		int policy, error_code;
+		int policy;
+		long error_code;
 		
 		data->status = SYSCALL_END;
 
@@ -1672,7 +1696,7 @@ linux_systemcall(int fd, pid_t pid, struct intercept_pid *icpid)
 			data->flags &= ~SYSTR_FLAGS_ERRORCODE;
 			data->error_code = 0;
 		} else if (sysnumber == linux_map_call(call_type, SYSTR_EXECVE) &&
-		    !RETURN_CODE(regs)) {
+		    RETURN_CODE(regs) == 0) {
 			/* remember that we saw a successful execve */
 			data->flags |= SYSTR_FLAGS_SAWEXECVE;
 		} else if (data->flags & SYSTR_FLAGS_SAWFORK) {

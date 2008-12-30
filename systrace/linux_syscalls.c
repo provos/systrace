@@ -709,6 +709,8 @@ linux_syscall_name(enum LINUX_CALL_TYPES call_type, pid_t pidnr, int number)
 		return (generic_syscall_name(
 				&linux_syscallnames_64[0], &nr_syscalls_64,
 				pidnr, number));
+	default:
+		errx(1, "unknown call_type: %d", call_type);
 	};
 #else
 	static int nr_syscalls = -1;
