@@ -1919,7 +1919,11 @@ linux_read(int fd)
 
 
 struct intercept_system intercept = {
-	"linux",
+#ifdef PTRACE_LINUX64
+	"linux64 ptrace",
+#else
+	"linux32 ptrace",
+#endif
 	linux_init,
 	linux_open,
 	linux_attach,
