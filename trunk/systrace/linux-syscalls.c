@@ -485,7 +485,7 @@ linux_read(int fd)
 
 
 struct intercept_system intercept = {
-	"linux",
+	"linux kernel",
 	linux_init,
 	linux_open,
 	linux_attach,
