@@ -632,8 +632,9 @@ char *linux_syscallnames_64[] = {
 #endif
 
 enum LINUX_CALL_TYPES {
-	LINUX64 = 1,
-	LINUX32 = 2
+	LINUX64 = 0,
+	LINUX32 = 1,
+	LINUX_NUM_VERSIONS = 2
 };
 
 static enum LINUX_CALL_TYPES
