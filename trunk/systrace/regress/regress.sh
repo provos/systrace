@@ -2,8 +2,8 @@
 
 echo "Performing simple regression tests"
 OS=`uname`
-if [ "$OS" == "Linux" ]; then
-  if [ `uname -m` == "x86_64" ]; then
+if [ "$OS" = "Linux" ]; then
+  if [ `uname -m` = "x86_64" ]; then
     OS="Linux64"
   fi
 fi
