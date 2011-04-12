@@ -13,8 +13,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *      This product includes software developed by Marius Aamodt Eriksen
- *      and Niels Provos.
+ *	This product includes software developed by Marius Aamodt Eriksen
+ *	and Niels Provos.
  * 4. The name of the author may not be used to endorse or promote products
  *    derived from this software without specific prior written permission.
  *
@@ -56,9 +56,9 @@ typedef u_int32_t u32;
 #else
 #ifdef HAVE_ASM_USER_H
 #include <asm/user.h>
-#endif  /* HAVE_ASM_USER_H */
-#endif  /* HAVE_SYS_USER_H */
-#endif  /* HAVE_LINUX_USER_H */
+#endif	/* HAVE_ASM_USER_H */
+#endif	/* HAVE_SYS_USER_H */
+#endif	/* HAVE_LINUX_USER_H */
 #include <linux/ptrace.h>	/* for PTRACE_O_TRACESYSGOOD */
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -75,9 +75,9 @@ typedef u_int32_t u32;
 #ifdef HAVE_SCHED_H
 #include <sched.h>
 #else
-#ifdef    HAVE_LINUX_SCHED_H
+#ifdef	  HAVE_LINUX_SCHED_H
 #include <linux/sched.h>
-#endif    /* HAVE_LINUX_SCHED_H */
+#endif	  /* HAVE_LINUX_SCHED_H */
 #endif
 
 #include <event.h>
@@ -129,34 +129,34 @@ typedef u_int32_t u32;
 #define SET_ARGUMENT_5(x, v)	(x)->ebp = (v)
 #endif /* !PTRACE_LINUX64 */
 
-static int                   linux_init(void);
-static int                   linux_attach(int, pid_t);
-static int                   linux_report(int, pid_t);
-static int                   linux_detach(int, pid_t);
-static int                   linux_open(void);
+static int		     linux_init(void);
+static int		     linux_attach(int, pid_t);
+static int		     linux_report(int, pid_t);
+static int		     linux_detach(int, pid_t);
+static int		     linux_open(void);
 static struct intercept_pid *linux_getpid(pid_t);
-static void                  linux_freepid(struct intercept_pid *);
-static void                  linux_clonepid(struct intercept_pid *, struct intercept_pid *);
-static const char           *linux_syscall_name(enum LINUX_CALL_TYPES, pid_t, int);
-static int                   linux_syscall_number(const char *, const char *);
-static short                 linux_translate_flags(short);
-static int                   linux_translate_errno(int);
-static int                   linux_answer(int, pid_t, u_int32_t, short, int, short, struct elevate *);
-static int                   linux_newpolicy(int);
-static int                   linux_assignpolicy(int, pid_t, int);
-static int                   linux_modifypolicy(int, int, int, short);
-static int                   linux_replace(int, pid_t, u_int16_t, struct intercept_replace *);
-static int                   linux_io(int, pid_t, int, void *, u_char *, size_t);
-static int                   linux_setcwd(int, pid_t);
-static int                   linux_restcwd(int);
-static int                   linux_argument(int, void *, int, void **);
-static int                   linux_read(int);
-static int                   linux_isfork(const char *);
+static void		     linux_freepid(struct intercept_pid *);
+static void		     linux_clonepid(struct intercept_pid *, struct intercept_pid *);
+static const char	    *linux_syscall_name(enum LINUX_CALL_TYPES, pid_t, int);
+static int		     linux_syscall_number(const char *, const char *);
+static short		     linux_translate_flags(short);
+static int		     linux_translate_errno(int);
+static int		     linux_answer(int, pid_t, u_int32_t, short, int, short, struct elevate *);
+static int		     linux_newpolicy(int);
+static int		     linux_assignpolicy(int, pid_t, int);
+static int		     linux_modifypolicy(int, int, int, short);
+static int		     linux_replace(int, pid_t, u_int16_t, struct intercept_replace *);
+static int		     linux_io(int, pid_t, int, void *, u_char *, size_t);
+static int		     linux_setcwd(int, pid_t);
+static int		     linux_restcwd(int);
+static int		     linux_argument(int, void *, int, void **);
+static int		     linux_read(int);
+static int		     linux_isfork(const char *);
 
 static void		     linux_remove_pidstatus(struct intercept_pid *, pid_t);
 static void		     linux_wakeprocesses(struct intercept_pid *, pid_t cpid);
 
-static void                  linux_atexit(void);
+static void		     linux_atexit(void);
 
 /* Local state */
 #define SYSTR_POLICY_ASK	0
@@ -187,9 +187,9 @@ static struct linux_policy policies[MAX_POLICIES];
 struct linux_wait_pid {
 	TAILQ_ENTRY(linux_wait_pid) next;
 
-        int status;
-        pid_t pid;
-        pid_t pgid;
+	int status;
+	pid_t pid;
+	pid_t pgid;
 };
 
 struct linux_data {
@@ -205,10 +205,10 @@ struct linux_data {
 	struct user_regs_struct regs;
 
 	/* everything below here needs to be cleared on clone */
-        int nchildren;
-        int nthreads;
+	int nchildren;
+	int nthreads;
 	int nthreads_waiting;
-        int nthreads_detached;
+	int nthreads_detached;
 
 	TAILQ_HEAD(childq, linux_wait_pid) waitq;
 };
@@ -275,17 +275,17 @@ linux_init(void)
 	static struct event sigterm_ev, sigint_ev;
 	memset(policy_used, 0, sizeof(policy_used));
 
-        /*
-         * TODO: find a better way to do this.
-         *
-         * Using atexit is kind of ugly, since it basically requires
-         * that systrace always dies in a way that gets the atexit
-         * handlers to be called, but without kernel support it is
-         * hard to make something entirely foolproof here.  It doesn't
-         * seem that ptrace itself supports anything of the like.
-         */
-        if (atexit(&linux_atexit) < 0)
-                errx(1, "atexit");
+	/*
+	 * TODO: find a better way to do this.
+	 *
+	 * Using atexit is kind of ugly, since it basically requires
+	 * that systrace always dies in a way that gets the atexit
+	 * handlers to be called, but without kernel support it is
+	 * hard to make something entirely foolproof here.  It doesn't
+	 * seem that ptrace itself supports anything of the like.
+	 */
+	if (atexit(&linux_atexit) < 0)
+		errx(1, "atexit");
 
 	signal_set(&sigint_ev, SIGINT, linux_term_signal, NULL);
 	signal_add(&sigint_ev, NULL);
@@ -481,7 +481,7 @@ linux_find_pidstatus(struct intercept_pid *pid, pid_t cpid, int *status)
 	TAILQ_FOREACH(wid, &data->waitq, next) {
 		/*
 		 * For a cpid != -1, we really need to implement process
-		 * group tracking.  So, do it.  0 means waiting for our
+		 * group tracking.  So, do it.	0 means waiting for our
 		 * own process group, a negative numbers means, wait for
 		 * a specific process group.
 		 */
@@ -590,7 +590,7 @@ linux_childdead(pid_t pid, int status)
 
 	/* if there is no parent then things are easy */
 	if (!ppid || (icpid = intercept_findpid(ppid)) == NULL) {
-		DFPRINTF((stderr, "%s:  no parent to wait for %d\n",
+		DFPRINTF((stderr, "%s:	no parent to wait for %d\n",
 			__func__, pid));
 		intercept_child_info(pid, -1);
 		goto out;
@@ -792,7 +792,7 @@ linux_policytranslate(int policy, int errnumber, long *result)
 }
 
 /*
- * Aborts a system call with the specified error code.  0 is a valid
+ * Aborts a system call with the specified error code.	0 is a valid
  * error code to return.
  */
 
@@ -860,15 +860,15 @@ linux_answer(int fd, pid_t pid, u_int32_t seqnr, short policy, int errnumber,
 		 * permitted. */
 		if (linux_isfork(linux_syscall_name(
 					 call_type, pid, SYSCALL_NUM(&data->regs)))) {
-                        DFPRINTF((stderr, "%s: detected fork\n", __func__));
+			DFPRINTF((stderr, "%s: detected fork\n", __func__));
 			data->flags |= SYSTR_FLAGS_SAWFORK;
-                }
+		}
 	}
 
 	/* we need to deny here if possible */
 	res = ptrace(PTRACE_SYSCALL, pid, (char *)1, 0);
 	if (res == -1) {
-		/* It's possible that we just killed the child.  Haha */
+		/* It's possible that we just killed the child.	 Haha */
 		if (errno == ESRCH)
 			return (0);
 		warn("%s:%d %s: ptrace", __FILE__, __LINE__, __func__);
@@ -1146,11 +1146,11 @@ linux_rewritefork(pid_t pid, const char *sysname, struct user_regs_struct *regs)
 	int res;
 
 #ifdef PTRACE_O_TRACEVFORK
-        if (strcmp(sysname, "vfork") == 0) {
-                DFPRINTF((stderr, "%s: pid %d not rewriting %s to clone\n",
-                        __func__, pid, sysname));
-                return;
-        }
+	if (strcmp(sysname, "vfork") == 0) {
+		DFPRINTF((stderr, "%s: pid %d not rewriting %s to clone\n",
+			__func__, pid, sysname));
+		return;
+	}
 #endif
 
 
@@ -1378,7 +1378,7 @@ linux_child_info(pid_t pid, pid_t cpid, int clone_flags)
 	struct intercept_pid *icpid, *cicpid = NULL;
 	struct linux_data *data, *cdata = NULL;
 
-	/* get the meta-data for the parent pid  */
+	/* get the meta-data for the parent pid	 */
 	icpid = intercept_findpid(pid);
 	if (icpid == NULL)
 		err(1, "%s: intercept_findpid", __func__);
@@ -1386,7 +1386,7 @@ linux_child_info(pid_t pid, pid_t cpid, int clone_flags)
 
 	/* get the meta-data for the child pid if we need it later  */
 	if ((clone_flags & CLONE_THREAD) ||
-            (data->flags & SYSTR_FLAGS_CLONE_THREAD)) {
+	    (data->flags & SYSTR_FLAGS_CLONE_THREAD)) {
 		cicpid = intercept_findpid(cpid);
 		if (cicpid == NULL)
 			err(1, "%s: intercept_findpid", __func__);
@@ -1438,34 +1438,34 @@ linux_child_info(pid_t pid, pid_t cpid, int clone_flags)
 
 static void
 linux_preparechild(pid_t ppid, pid_t cpid, int clone_flags) {
-        struct linux_data *cdata = NULL;
-        int child_insigstop = 0;
-        /* a clone returned successfully */
-        if (!cpid) {
-                /* something funky?? */
-                errx(1, "%s: funky on clone return", __func__);
-        }
+	struct linux_data *cdata = NULL;
+	int child_insigstop = 0;
+	/* a clone returned successfully */
+	if (!cpid) {
+		/* something funky?? */
+		errx(1, "%s: funky on clone return", __func__);
+	}
 
-        /* register a new child with our tracer */
-        DFPRINTF((stderr, "%s: ppid %d -> new child %d\n",
-                __func__, ppid, cpid));
-        /* check if the child is already there and if we kept it in sigstop */
-        cdata = linux_get_piddata(cpid);
-        if (cdata != NULL && (cdata->flags & SYSTR_FLAGS_STOPWAITING))
-                child_insigstop = 1;
-        intercept_child_info(ppid, cpid);
+	/* register a new child with our tracer */
+	DFPRINTF((stderr, "%s: ppid %d -> new child %d\n",
+		__func__, ppid, cpid));
+	/* check if the child is already there and if we kept it in sigstop */
+	cdata = linux_get_piddata(cpid);
+	if (cdata != NULL && (cdata->flags & SYSTR_FLAGS_STOPWAITING))
+		child_insigstop = 1;
+	intercept_child_info(ppid, cpid);
 
-        linux_child_info(ppid, cpid, clone_flags);
+	linux_child_info(ppid, cpid, clone_flags);
 
-        if (!child_insigstop) {
-                /* we are still expecting a sigstop */
-                linux_skipsigstop(cpid);
-        } else {
-                /* the child is currently waiting in sigstop - continue it */
-                int res = ptrace(PTRACE_SYSCALL, cpid, (char *)1, 0);
-                if (res == -1)
-                        err(1, "%s: ptrace", __func__);
-        }
+	if (!child_insigstop) {
+		/* we are still expecting a sigstop */
+		linux_skipsigstop(cpid);
+	} else {
+		/* the child is currently waiting in sigstop - continue it */
+		int res = ptrace(PTRACE_SYSCALL, cpid, (char *)1, 0);
+		if (res == -1)
+			err(1, "%s: ptrace", __func__);
+	}
 }
 
 static void
@@ -1491,11 +1491,11 @@ linux_forkreturn(pid_t pid, struct user_regs_struct *regs)
 	DFPRINTF((stderr, "%s: pid %d fork return %d\n",
 		__func__, pid, child_pid));
 	if (child_pid >= 0) {
-                /* figure out what kind of clone this was */
-                long clone_flags;
-                linux_argument(0, regs, sizeof(*regs), (void **)&clone_flags);
+		/* figure out what kind of clone this was */
+		long clone_flags;
+		linux_argument(0, regs, sizeof(*regs), (void **)&clone_flags);
 
-                linux_preparechild(pid, child_pid, clone_flags);
+		linux_preparechild(pid, child_pid, clone_flags);
 	}
 }
 
@@ -1599,7 +1599,7 @@ linux_systemcall(int fd, pid_t pid, struct intercept_pid *icpid)
 		if (-RETURN_CODE(regs) != ENOSYS) {
 		  /*
 		   * On some Linux system's it's possible for the
-		   * child to return before we get the SIGSTOP.  That
+		   * child to return before we get the SIGSTOP.	 That
 		   * also means that the child may return before the
 		   * parent does. It's pretty weird.
 		   */
@@ -1892,14 +1892,14 @@ linux_wakeprocesses(struct intercept_pid *icpid, pid_t wpid)
 static void
 linux_kill(struct intercept_pid *icpid, void* arg)
 {
-        ptrace(PTRACE_KILL, icpid->pid, NULL, NULL);
+	ptrace(PTRACE_KILL, icpid->pid, NULL, NULL);
 }
 
 static void
 linux_atexit(void)
 {
-        /* Kill all of the traced PIDs. */
-        intercept_foreachpid(&linux_kill, NULL);
+	/* Kill all of the traced PIDs. */
+	intercept_foreachpid(&linux_kill, NULL);
 }
 
 static int
@@ -1928,19 +1928,19 @@ linux_read(int fd)
 		return (-1);
 	}
 #ifdef DEBUG
-        data = icpid->data;
-        fprintf(stderr,
-            "icpid->flags: 0x%0x, parent: %d, policy: %d\n"
-            "WIFEXITED: %d "
-            "WIFSTOPPED: %d\n",
-            data->flags, icpid->ppid, data->policy,
-            WIFEXITED(status),
-            WIFSTOPPED(status));
-        if (WIFSTOPPED(status)) {
-                fprintf(stderr,
-                    "WSTOPSIG: %d (syscall expected: %d)\n",
-                    WSTOPSIG(status), sigsyscall);
-        }
+	data = icpid->data;
+	fprintf(stderr,
+	    "icpid->flags: 0x%0x, parent: %d, policy: %d\n"
+	    "WIFEXITED: %d "
+	    "WIFSTOPPED: %d\n",
+	    data->flags, icpid->ppid, data->policy,
+	    WIFEXITED(status),
+	    WIFSTOPPED(status));
+	if (WIFSTOPPED(status)) {
+		fprintf(stderr,
+		    "WSTOPSIG: %d (syscall expected: %d)\n",
+		    WSTOPSIG(status), sigsyscall);
+	}
 #endif /* DEBUG */
 
 	if (WIFEXITED(status)) {
@@ -1971,35 +1971,35 @@ linux_read(int fd)
 		 */
 		data = icpid->data;
 		if (signum == SIGTRAP) {
-                        if (data->flags & SYSTR_FLAGS_SAWEXECVE) {
-                                /* Linux is a weird beast */
-                                data->flags &= ~SYSTR_FLAGS_SAWEXECVE;
-                                ptrace(PTRACE_SYSCALL, pid, (char *)1, 0);
-                                return (0);
+			if (data->flags & SYSTR_FLAGS_SAWEXECVE) {
+				/* Linux is a weird beast */
+				data->flags &= ~SYSTR_FLAGS_SAWEXECVE;
+				ptrace(PTRACE_SYSCALL, pid, (char *)1, 0);
+				return (0);
 #ifdef PTRACE_O_TRACEVFORK
-                        } else if (data->flags & SYSTR_FLAGS_SAWFORK &&
-                            (status >> 16) == PTRACE_EVENT_VFORK) {
-                                data->flags &= ~SYSTR_FLAGS_SAWFORK;
-                                long msg = 0;
+			} else if (data->flags & SYSTR_FLAGS_SAWFORK &&
+			    (status >> 16) == PTRACE_EVENT_VFORK) {
+				data->flags &= ~SYSTR_FLAGS_SAWFORK;
+				long msg = 0;
 
-                                /* VFORK stops the parent and does not return to the
-                                 * parent till the child either calls exit or execve.
-                                 * However, we rely on the pid returned by vfork to
-                                 * associate the child with the parent.   Newever
-                                 * versions of ptrace allows us to get the pid via
-                                 * PTRACE_GETEVENTMSG.
-                                 */
+				/* VFORK stops the parent and does not return to the
+				 * parent till the child either calls exit or execve.
+				 * However, we rely on the pid returned by vfork to
+				 * associate the child with the parent.	  Newever
+				 * versions of ptrace allows us to get the pid via
+				 * PTRACE_GETEVENTMSG.
+				 */
 
-                                if (ptrace(PTRACE_GETEVENTMSG, pid,
-                                        NULL, (void *)&msg) == 0) {
-                                        DFPRINTF((stderr, "saw vfork: child pid %d\n", msg));
-                                        linux_preparechild(pid, msg, 0 /*clone_flags*/);
-                                }
-                                ptrace(PTRACE_SYSCALL, pid, (char *)1, 0);
-                                return (0);
-                        }
+				if (ptrace(PTRACE_GETEVENTMSG, pid,
+					NULL, (void *)&msg) == 0) {
+					DFPRINTF((stderr, "saw vfork: child pid %d\n", msg));
+					linux_preparechild(pid, msg, 0 /*clone_flags*/);
+				}
+				ptrace(PTRACE_SYSCALL, pid, (char *)1, 0);
+				return (0);
+			}
 #endif /* PTRACE_O_TRACEVFORK */
-                }
+		}
 
 		/*
 		 * New childs may get a gratutious skip stop for being
@@ -2007,7 +2007,7 @@ linux_read(int fd)
 		 * them continue to run.
 		 */
 		if (signum == SIGSTOP) {
-                        DFPRINTF((stderr, "%s: child %d got sigstop\n", __func__, pid));
+			DFPRINTF((stderr, "%s: child %d got sigstop\n", __func__, pid));
 			if (data->flags & SYSTR_FLAGS_SKIPSTOP) {
 				data->flags &= ~SYSTR_FLAGS_SKIPSTOP;
 				signum = 0;
@@ -2015,15 +2015,15 @@ linux_read(int fd)
 					  "%s: making new child %d continue\n",
 					  __func__, pid));
 			} else if (data->policy == -1) {
-                                /*
-                                 * We are not going to wake this child
-                                 * up, until we heard back from our
-                                 * parent.
-                                 */
-                                DFPRINTF((stderr, "%s: child %d sigstop waiting on parent\n",
-                                        __func__, pid));
-                                data->flags |= SYSTR_FLAGS_STOPWAITING;
-                                return (0);
+				/*
+				 * We are not going to wake this child
+				 * up, until we heard back from our
+				 * parent.
+				 */
+				DFPRINTF((stderr, "%s: child %d sigstop waiting on parent\n",
+					__func__, pid));
+				data->flags |= SYSTR_FLAGS_STOPWAITING;
+				return (0);
 			}
 		}
 
