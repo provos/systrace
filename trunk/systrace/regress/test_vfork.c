@@ -22,9 +22,14 @@ void Test0(void)
 	int status = -1;
 
 	printf("\n-----Entering %s\n", __func__);
-	
+
 	if ((pid = vfork()) == 0) {
                 /* can only exit here */
+                char *argv[] = { "/bin/ls", NULL };
+                char *envp[] = { NULL };
+
+                execve("/bin/ls", argv, envp);
+
 		exit(0);
 	}
 
