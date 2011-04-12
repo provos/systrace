@@ -1367,6 +1367,7 @@ linux_skipsigstop(pid_t pid)
 	icpid = intercept_findpid(pid);
 	if (icpid == NULL)
 		err(1, "%s: intercept_findpid", __func__);
+        DFPRINTF((stderr, "setting skip stop on %d\n", pid));
 	data = icpid->data;
 	data->flags |= SYSTR_FLAGS_SKIPSTOP;
 }
@@ -1597,20 +1598,15 @@ linux_systemcall(int fd, pid_t pid, struct intercept_pid *icpid)
 		}
 
 		if (-RETURN_CODE(regs) != ENOSYS) {
-		  /*
-		   * On some Linux system's it's possible for the
-		   * child to return before we get the SIGSTOP.	 That
-		   * also means that the child may return before the
-		   * parent does. It's pretty weird.
-		   */
-		  if ((data->flags & SYSTR_FLAGS_SKIPSTOP) ||
-		      data->policy == -1) {
-		    DFPRINTF((stderr, "%s: pid %d forcing sys call exit\n",
-			      __func__, pid));
-		    data->status = SYSCALL_END;
-		  } else {
-		    errx(1, "%s: got system call start without ENOSYS", __func__);
-		  }
+                        /*
+                         * On some Linux system's it's possible for the
+                         * child to return before we get the SIGSTOP.	 That
+                         * also means that the child may return before the
+                         * parent does. It's pretty weird.
+                         */
+                        DFPRINTF((stderr, "%s: pid %d forcing sys call exit\n",
+                                __func__, pid));
+                        data->status = SYSCALL_END;
 		}
 	}
 
