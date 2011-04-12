@@ -53,6 +53,9 @@
 #endif /* __linux__ */
 #include <stdlib.h>
 #include <unistd.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif /* HAVE_STDINT_H */
 #include <stdio.h>
 #include <stdarg.h>
 #include <fcntl.h>
