@@ -320,7 +320,7 @@ linux_attach(int fd, pid_t pid)
 		return (-1);
 	}
 
-#ifdef PTRACE_O_TRACESYSGOOD && PTRACE_O_TRACEVFORK
+#if defined(PTRACE_O_TRACESYSGOOD) && defined(PTRACE_O_TRACEVFORK)
 	DFPRINTF((stderr, "%s: setting ptrace options\n", __func__));
 	res = ptrace(PTRACE_SETOPTIONS, pid,
 	    NULL, (void *)(PTRACE_O_TRACESYSGOOD|PTRACE_O_TRACEVFORK));
