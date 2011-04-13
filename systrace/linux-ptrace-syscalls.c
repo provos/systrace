@@ -1981,14 +1981,14 @@ linux_read(int fd)
 				/* VFORK stops the parent and does not return to the
 				 * parent till the child either calls exit or execve.
 				 * However, we rely on the pid returned by vfork to
-				 * associate the child with the parent.	  Newever
+				 * associate the child with the parent.	  Newer
 				 * versions of ptrace allows us to get the pid via
 				 * PTRACE_GETEVENTMSG.
 				 */
 
 				if (ptrace(PTRACE_GETEVENTMSG, pid,
 					NULL, (void *)&msg) == 0) {
-					DFPRINTF((stderr, "saw vfork: child pid %d\n", msg));
+					DFPRINTF((stderr, "saw vfork: child pid %ld\n", msg));
 					linux_preparechild(pid, msg, 0 /*clone_flags*/);
 				}
 				ptrace(PTRACE_SYSCALL, pid, (char *)1, 0);
