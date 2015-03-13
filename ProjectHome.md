@@ -1,0 +1,1 @@
+Systrace enforces system call policies for applications by constraining the application's access to the system. The policy is generated interactively. Operations not covered by the policy raise an alarm, allowing an user to refine the currently configured policy.
